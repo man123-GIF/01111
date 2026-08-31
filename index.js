@@ -4,7 +4,7 @@ const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "de1.bot-hosting.cloud";
 const ARGO_PORT = process.env.ARGO_PORT || 25644;                    
 
 const CFIP = process.env.CFIP || "de1.bot-hosting.cloud";                 
-const CFPORT = process.env.CFPORT || 25644;                           
+const CFPORT = process.env.CFPORT || 25044;                           
 const NAME = process.env.NAME || "Argo_EasyShare";             
 
 const FILE_PATH = process.env.FILE_PATH || ".tmp";
