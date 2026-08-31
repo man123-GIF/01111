@@ -7,7 +7,7 @@ const ARGO_PROTOCOL = process.env.ARGO_PROTOCOL || "http2";         // http2稳�
 const ARGO_CONNECTIONS = process.env.ARGO_CONNECTIONS || "4";       // 连接数4=并发吞吐能力强
 
 const ARGO_PORT = process.env.ARGO_PORT || 33333;                    // Cloudflare回源端口
-const CFIP = process.env.CFIP || "www.visa.com.HEL";                 // 优选域名/IP (芬兰HEL节点)
+const CFIP = process.env.CFIP || "www.visa.com";                 // 优选域名/IP (芬兰HEL节点)
 const CFPORT = process.env.CFPORT || 443;                           // 端口
 const NAME = process.env.NAME || "Argo_EasyShare";             
 
