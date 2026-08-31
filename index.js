@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "de1.bot-hosting.cloud";                  
-const ARGO_PORT = process.env.ARGO_PORT || 25644;                    
+const ARGO_PORT = process.env.ARGO_PORT || 25044;                    
 
 const CFIP = process.env.CFIP || "de1.bot-hosting.cloud";                 
 const CFPORT = process.env.CFPORT || 25044;                           
