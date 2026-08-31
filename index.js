@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "de1.bot-hosting.cloud";                  // 直接使用面板分配域名
-const ARGO_PORT = process.env.ARGO_PORT || 25644;                    // 直接使用分配端口
+const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "de1.bot-hosting.cloud";                  
+const ARGO_PORT = process.env.ARGO_PORT || 25644;                    
 
-const CFIP = process.env.CFIP || "de1.bot-hosting.cloud";                 // 优选域名/IP，这里直接填面板域名
-const CFPORT = process.env.CFPORT || 25644;                           // 端口，这里用25644
+const CFIP = process.env.CFIP || "de1.bot-hosting.cloud";                 
+const CFPORT = process.env.CFPORT || 25644;                           
 const NAME = process.env.NAME || "Argo_EasyShare";             
 
 const FILE_PATH = process.env.FILE_PATH || ".tmp";
@@ -34,7 +34,6 @@ const UUID = rawUUID.toLowerCase();
 const WS_PATH = `/${UUID}-vless`;
 const log = (msg) => process.stdout.write(msg + "\n");
 
-// 下载文件函数（直连模式不需要下载cloudflared，但保留以防万一）
 function downloadFile(urlStr, targetPath) {
   return new Promise((resolve, reject) => {
     const client = urlStr.startsWith("https") ? https : http;
@@ -70,7 +69,6 @@ const webPath = path.join(FILE_PATH, "web");
 const configPath = path.join(FILE_PATH, "config.json");
 
 async function main() {
-  // 构建 sing-box 配置，监听 25644 端口
   const config = {
     log: { level: "panic" },
     inbounds: [{
@@ -89,13 +87,11 @@ async function main() {
   fs.writeFileSync(configPath, JSON.stringify(config));
 
   const isArm = ["arm", "arm64", "aarch64"].includes(os.arch());
-  // 这里只下载 sing-box，不再下载 cloudflared
   const SINGBOX_VER = "1.11.4";
   const singboxTarUrl = isArm
     ? `https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VER}/sing-box-${SINGBOX_VER}-linux-arm64.tar.gz`
     : `https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VER}/sing-box-${SINGBOX_VER}-linux-amd64.tar.gz`;
 
-  // 解压 sing-box 的逻辑
   function extractSingbox(tarPath, targetWebPath) {
     try {
       const { execSync } = require("child_process");
@@ -120,7 +116,6 @@ async function main() {
   fs.chmodSync(webPath, 0o775);
 
   log("正在启动 sing-box 服务...");
-  // 分配64MB内存给它
   let webProc = spawn(webPath, ["run", "-c", configPath], {
     env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "64MiB" }),
     stdio: "ignore"
@@ -130,8 +125,8 @@ async function main() {
     log(`[警告] sing-box 进程退出，退出码: ${code}`);
   });
 
-  // 生成直连节点链接
-  const plainNodeLink = `vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=chrome&type=ws&host=${ARGO_DOMAIN}&path=${WS_PATH}#${NAME}`;
+  // 这里改成 security=none（不加密），走 ws 协议直连端口
+  const plainNodeLink = `vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=none&type=ws&host=${ARGO_DOMAIN}&path=${WS_PATH}#${NAME}`;
   log(`\n================== 直连节点链接 ==================\n${plainNodeLink}\n===================================================\n`);
   
   try {
