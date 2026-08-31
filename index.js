@@ -7,7 +7,7 @@ const ARGO_PROTOCOL = process.env.ARGO_PROTOCOL || "http2";         // http2稳�
 const ARGO_CONNECTIONS = process.env.ARGO_CONNECTIONS || "4";       // 连接数4=并发吞吐能力强
 
 const ARGO_PORT = process.env.ARGO_PORT || 33333;                    // Cloudflare回源端口
-const CFIP = process.env.CFIP || "104.16.24.34";                 // 优选域名/IP (已修改为有效的CF优选IP)
+const CFIP = process.env.CFIP || "104.16.24.34";                 // 优选域名/IP (已固定为104.16.24.34，防止解析失败)
 const CFPORT = process.env.CFPORT || 443;                           // 端口
 const NAME = process.env.NAME || "Argo_EasyShare";             
 
@@ -22,7 +22,6 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-// ★★★ 唯一修改点：把 GOGC 改为了 50，让内存回收更平稳 ★★★
 const GO_BASE_ENV = {
   ...process.env,
   GODEBUG: "madvdontneed=1,cgocheck=0",
@@ -137,9 +136,9 @@ async function main() {
   fs.chmodSync(botPath, 0o775);
 
   log("正在启动 sing-box 服务...");
-  // ★★★ 唯一修改点：把 16MiB 改为了 128MiB，防止因内存不足被杀 ★★★
+  // 限制内存为32MiB（原先是128MiB会溢出被杀）
   let webProc = spawn(webPath, ["run", "-c", configPath], {
-    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "128MiB" }),
+    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "32MiB" }),
     stdio: "ignore"
   });
 
@@ -163,9 +162,9 @@ async function main() {
   }
 
   log("正在启动 Cloudflared 隧道...");
-  // ★★★ 唯一修改点：把 24MiB 改为了 128MiB，防止因内存不足被杀 ★★★
+  // 限制内存为48MiB（保证不超出256MB总内存）
   let botProc = spawn(botPath, argoArgs, {
-    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "128MiB" }),
+    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "48MiB" }),
     stdio: "ignore"
   });
 
