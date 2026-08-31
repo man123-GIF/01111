@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "";                  // 固定隧道域名（留空=临时隧道）
-const ARGO_AUTH = process.env.ARGO_AUTH || "";                      // 固定隧道Token（留空=临时隧道）
+const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "aaa.xiao00.cc.cd";                  // 固定隧道域名（留空=临时隧道）
+const ARGO_AUTH = process.env.ARGO_AUTH || "eyJhIjoiNzhkY2VmZjE0NjdlYTM4ODA4NDMwZGU3NjY2NzU3YWEiLCJ0IjoiNmFjZmQwOTgtYjBmMC00MmZlLTk2NWEtOTY0MTE2N2VhZjMxIiwicyI6IlpETTVOR0ZoWXprdFkyTTBNaTAwT0dVMkxXRTVZek10WTJWbVl6SmhPV0pqTkdFeSJ9";                      // 固定隧道Token（留空=临时隧道）
 
 const ARGO_PROTOCOL = process.env.ARGO_PROTOCOL || "http2";         // http2稳定，占用低。quic具备UDP特性，极致响应速度，但内存占用高，64MB内存勿选
 const ARGO_CONNECTIONS = process.env.ARGO_CONNECTIONS || "4";       // 连接数4=并发吞吐能力强
 
-const ARGO_PORT = process.env.ARGO_PORT || 8001;                    // Cloudflare回源端口
-const CFIP = process.env.CFIP || "www.visa.com.hk";                 // 优选域名/IP
+const ARGO_PORT = process.env.ARGO_PORT || 33333;                    // Cloudflare回源端口
+const CFIP = process.env.CFIP || "www.visa.com.HEL";                 // 优选域名/IP
 const CFPORT = process.env.CFPORT || 443;                           // 端口
 const NAME = process.env.NAME || "Argo_EasyShare";             
 
