@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 
-const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "aaa.xiao00.cc.cd";                  // 固定隧道域名（留空=临时隧道）
-const ARGO_AUTH = process.env.ARGO_AUTH || "eyJhIjoiNzhkY2VmZjE0NjdlYTM4ODA4NDMwZGU3NjY2NzU3YWEiLCJ0IjoiNmFjZmQwOTgtYjBmMC00MmZlLTk2NWEtOTY0MTE2N2VhZjMxIiwicyI6IlpETTVOR0ZoWXprdFkyTTBNaTAwT0dVMkxXRTVZek10WTJWbVl6SmhPV0pqTkdFeSJ9";                      // 固定隧道Token（留空=临时隧道）
+const ARGO_DOMAIN = process.env.ARGO_DOMAIN || "de1.bot-hosting.cloud";                  // 直接使用面板分配域名
+const ARGO_PORT = process.env.ARGO_PORT || 25644;                    // 直接使用分配端口
 
-const ARGO_PROTOCOL = process.env.ARGO_PROTOCOL || "http2";         // http2稳定，占用低。quic具备UDP特性，极致响应速度，但内存占用高，64MB内存勿选
-const ARGO_CONNECTIONS = process.env.ARGO_CONNECTIONS || "4";       // 连接数4=并发吞吐能力强
-
-const ARGO_PORT = process.env.ARGO_PORT || 33333;                    // Cloudflare回源端口
-const CFIP = process.env.CFIP || "104.16.24.34";                 // 优选域名/IP (已固定为104.16.24.34，防止解析失败)
-const CFPORT = process.env.CFPORT || 443;                           // 端口
+const CFIP = process.env.CFIP || "de1.bot-hosting.cloud";                 // 优选域名/IP，这里直接填面板域名
+const CFPORT = process.env.CFPORT || 25644;                           // 端口，这里用25644
 const NAME = process.env.NAME || "Argo_EasyShare";             
 
 const FILE_PATH = process.env.FILE_PATH || ".tmp";
@@ -38,6 +34,7 @@ const UUID = rawUUID.toLowerCase();
 const WS_PATH = `/${UUID}-vless`;
 const log = (msg) => process.stdout.write(msg + "\n");
 
+// 下载文件函数（直连模式不需要下载cloudflared，但保留以防万一）
 function downloadFile(urlStr, targetPath) {
   return new Promise((resolve, reject) => {
     const client = urlStr.startsWith("https") ? https : http;
@@ -67,31 +64,13 @@ function downloadFile(urlStr, targetPath) {
   });
 }
 
-function extractSingbox(tarPath, targetWebPath) {
-  try {
-    const { execSync } = require("child_process");
-    execSync(`tar -xzf "${tarPath}" -C "${FILE_PATH}" --wildcards "*/sing-box" --strip-components=1 || tar -xzf "${tarPath}" -C "${FILE_PATH}" sing-box`);
-    const extractedPath = path.join(FILE_PATH, "sing-box");
-    if (fs.existsSync(extractedPath)) {
-      if (extractedPath !== targetWebPath) fs.renameSync(extractedPath, targetWebPath);
-      return;
-    }
-  } catch (e) {}
-  throw new Error("提取 sing-box 失败");
-}
-
 if (!fs.existsSync(FILE_PATH)) fs.mkdirSync(FILE_PATH, { recursive: true });
 
 const webPath = path.join(FILE_PATH, "web");
-const botPath = path.join(FILE_PATH, "bot");
-const bootLogPath = path.join(FILE_PATH, "boot.log");
 const configPath = path.join(FILE_PATH, "config.json");
 
 async function main() {
-  if (fs.existsSync(bootLogPath)) {
-    try { fs.unlinkSync(bootLogPath); } catch (e) {}
-  }
-
+  // 构建 sing-box 配置，监听 25644 端口
   const config = {
     log: { level: "panic" },
     inbounds: [{
@@ -110,14 +89,25 @@ async function main() {
   fs.writeFileSync(configPath, JSON.stringify(config));
 
   const isArm = ["arm", "arm64", "aarch64"].includes(os.arch());
-  const cloudflaredUrl = isArm
-    ? "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64"
-    : "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64";
-
+  // 这里只下载 sing-box，不再下载 cloudflared
   const SINGBOX_VER = "1.11.4";
   const singboxTarUrl = isArm
     ? `https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VER}/sing-box-${SINGBOX_VER}-linux-arm64.tar.gz`
     : `https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VER}/sing-box-${SINGBOX_VER}-linux-amd64.tar.gz`;
+
+  // 解压 sing-box 的逻辑
+  function extractSingbox(tarPath, targetWebPath) {
+    try {
+      const { execSync } = require("child_process");
+      execSync(`tar -xzf "${tarPath}" -C "${FILE_PATH}" --wildcards "*/sing-box" --strip-components=1 || tar -xzf "${tarPath}" -C "${FILE_PATH}" sing-box`);
+      const extractedPath = path.join(FILE_PATH, "sing-box");
+      if (fs.existsSync(extractedPath)) {
+        if (extractedPath !== targetWebPath) fs.renameSync(extractedPath, targetWebPath);
+        return;
+      }
+    } catch (e) {}
+    throw new Error("提取 sing-box 失败");
+  }
 
   if (!fs.existsSync(webPath)) {
     log("正在下载 sing-box...");
@@ -127,97 +117,32 @@ async function main() {
     try { fs.unlinkSync(tempTar); } catch (e) {}
   }
 
-  if (!fs.existsSync(botPath)) {
-    log("正在下载 Cloudflared...");
-    await downloadFile(cloudflaredUrl, botPath);
-  }
-
   fs.chmodSync(webPath, 0o775);
-  fs.chmodSync(botPath, 0o775);
 
   log("正在启动 sing-box 服务...");
-  // 针对256MB内存调整，防止进程瞬间被杀
+  // 分配64MB内存给它
   let webProc = spawn(webPath, ["run", "-c", configPath], {
     env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "64MiB" }),
-    stdio: "ignore"
-  });
-
-  await new Promise((r) => setTimeout(r, 1000));
-
-  const authTrim = ARGO_AUTH.trim();
-  
-  let argoArgs = [
-    "tunnel",
-    "--no-autoupdate",
-    "--protocol", ARGO_PROTOCOL.toLowerCase(),
-    "--ha-connections", String(ARGO_CONNECTIONS)
-  ];
-
-  if (authTrim.length > 30) {
-    log(`检测到 Token，启动固定隧道 [协议:${ARGO_PROTOCOL} | 连接数:${ARGO_CONNECTIONS}]...`);
-    argoArgs.push("run", "--token", authTrim);
-  } else {
-    log(`未检测到 Token，启动临时隧道...`);
-    argoArgs.push("--url", `http://127.0.0.1:${ARGO_PORT}`, "--logfile", bootLogPath, "--loglevel", "info");
-  }
-
-  log("正在启动 Cloudflared 隧道...");
-  // 针对256MB内存调整，防止进程瞬间被杀
-  let botProc = spawn(botPath, argoArgs, {
-    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "80MiB" }),
     stdio: "ignore"
   });
 
   webProc.on("exit", (code) => {
     log(`[警告] sing-box 进程退出，退出码: ${code}`);
   });
-  botProc.on("exit", (code) => {
-    log(`[警告] Cloudflared 进程退出，退出码: ${code}`);
-  });
 
-  let domain = ARGO_DOMAIN;
-  if (!domain && authTrim.length <= 30) {
-    log("正在获取 Argo 临时域名...");
-    for (let i = 0; i < 25; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      if (fs.existsSync(bootLogPath)) {
-        try {
-          const logText = fs.readFileSync(bootLogPath, "utf-8");
-          if (logText && logText.length > 0) {
-            const match = logText.match(/https?:\/\/([^ ]*trycloudflare\.com)\/?/);
-            if (match) {
-              domain = match[1];
-              break;
-            }
-          }
-        } catch (e) {}
-      }
-    }
-  }
-
-  if (domain) {
-    const plainNodeLink = `vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${domain}&fp=chrome&type=ws&host=${domain}&path=${WS_PATH}#${NAME}`;
-    log(`\n================== Argo Vless 节点链接 ==================\n${plainNodeLink}\n===================================================\n`);
-    
-    try {
-      fs.writeFileSync(URL_FILE_PATH, plainNodeLink, "utf-8");
-      log(`[成功！] 节点链接已保存至 ${URL_FILE_PATH}`);
-    } catch (e) {
-      log(`[错误！] 保存节点链接失败: ${e.message}`);
-    }
-  } else if (authTrim.length > 30) {
-    log(`[提示] 已启动固定隧道，请确保已在 Cloudflare Tunnels配置了服务URL (指向 http://127.0.0.1:${ARGO_PORT})。`);
-  } else {
-    log("[错误！] 获取 Argo 临时域名失败，请检查 boot.log 日志内容！");
-  }
-
-  if (fs.existsSync(bootLogPath) && authTrim.length > 30) {
-    try { fs.unlinkSync(bootLogPath); } catch (e) {}
+  // 生成直连节点链接
+  const plainNodeLink = `vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${ARGO_DOMAIN}&fp=chrome&type=ws&host=${ARGO_DOMAIN}&path=${WS_PATH}#${NAME}`;
+  log(`\n================== 直连节点链接 ==================\n${plainNodeLink}\n===================================================\n`);
+  
+  try {
+    fs.writeFileSync(URL_FILE_PATH, plainNodeLink, "utf-8");
+    log(`[成功！] 节点链接已保存至 ${URL_FILE_PATH}`);
+  } catch (e) {
+    log(`[错误！] 保存节点链接失败: ${e.message}`);
   }
 
   const cleanup = () => {
     try { webProc.kill("SIGKILL"); } catch (e) {}
-    try { botProc.kill("SIGKILL"); } catch (e) {}
     process.exit(0);
   };
   process.on("SIGINT", cleanup);
