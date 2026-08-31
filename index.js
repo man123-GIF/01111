@@ -136,9 +136,9 @@ async function main() {
   fs.chmodSync(botPath, 0o775);
 
   log("正在启动 sing-box 服务...");
-  // 限制内存为32MiB（原先是128MiB会溢出被杀）
+  // 针对256MB内存调整，防止进程瞬间被杀
   let webProc = spawn(webPath, ["run", "-c", configPath], {
-    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "32MiB" }),
+    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "64MiB" }),
     stdio: "ignore"
   });
 
@@ -162,9 +162,9 @@ async function main() {
   }
 
   log("正在启动 Cloudflared 隧道...");
-  // 限制内存为48MiB（保证不超出256MB总内存）
+  // 针对256MB内存调整，防止进程瞬间被杀
   let botProc = spawn(botPath, argoArgs, {
-    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "48MiB" }),
+    env: Object.assign({}, GO_BASE_ENV, { GOMEMLIMIT: "80MiB" }),
     stdio: "ignore"
   });
 
